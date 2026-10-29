@@ -1,0 +1,54 @@
+// This has been completely reimplemented at this point, but the disclaimer at the end of disclaimers still counts.
+// https://github.com/Cordwood/Cordwood/blob/91c0b971bbf05e112927df75415df99fa105e1e7/src/lib/utils/findInTree.ts
+
+export type SearchTree = Record<string, any>;
+export type SearchFilter = (tree: SearchTree) => boolean;
+export interface FindInTreeOptions {
+    walkable?: string[] | Set<string>;
+    ignore?: string[] | Set<string>;
+    maxDepth?: number;
+}
+
+function treeSearch(tree: SearchTree, filter: SearchFilter, walkable: Set<string>, ignore: Set<string>, maxDepth: number, depth: number): any {
+    if (depth > maxDepth) return;
+    if (!tree) return;
+
+    try {
+        if (filter(tree)) return tree;
+    } catch { }
+
+    if (Array.isArray(tree)) {
+        for (const item of tree) {
+            if (typeof item !== "object" || item === null) continue;
+
+            try {
+                const found = treeSearch(item, filter, walkable, ignore, maxDepth, depth + 1);
+                if (found) return found;
+            } catch { }
+        }
+    } else if (typeof tree === "object") {
+        for (const key in tree) {
+            if (Object.prototype.hasOwnProperty.call(tree, key) === false) continue;
+            if (typeof tree[key] !== "object" || tree[key] === null) continue;
+            if (walkable.size && !walkable.has(key)) continue;
+            if (ignore.size && ignore.has(key)) continue;
+
+            try {
+                const found = treeSearch(tree[key], filter, walkable, ignore, maxDepth, depth + 1);
+                if (found) return found;
+            } catch { }
+        }
+    }
+}
+
+export default function findInTree(
+    tree: SearchTree,
+    filter: SearchFilter,
+    {
+        walkable = [],
+        ignore = [],
+        maxDepth = 100
+    }: FindInTreeOptions = {},
+): any | undefined {
+    return treeSearch(tree, filter, new Set(walkable), new Set(ignore), maxDepth, 0);
+}
